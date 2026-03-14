@@ -12,7 +12,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
-    // Simulación de login exitoso
     router.replace('/(tabs)');
   };
 
@@ -117,7 +116,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textAlign: 'center',
     width: '100%',
-    paddingLeft: 4, // Prevents italics/letter-spacing clipping the first letter
+    paddingLeft: 4,
   },
   tagline: {
     fontSize: 14,

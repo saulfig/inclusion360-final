@@ -32,7 +32,6 @@ export default function ChatAsistenteScreen() {
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
 
-    // Simular respuesta de IA
     setTimeout(() => {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),

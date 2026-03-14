@@ -49,7 +49,6 @@ export default function MapaScreen() {
          </View>
       </ScrollView>
 
-      {/* Mock del Mapa */}
       <View style={styles.mapMock}>
           <View style={[styles.scannerHint, { top: 20 }]}>
              <IconSymbol name="viewfinder" size={20} color="#FFF" />
@@ -69,7 +68,6 @@ export default function MapaScreen() {
              </View>
           </View>
 
-          {/* Map Pins */}
           <View style={[styles.pin, { top: '50%', left: '40%' }]}>
              <ThemedText style={styles.pinLabel}>Cafetería Luz</ThemedText>
              <View style={styles.pinIcon}>

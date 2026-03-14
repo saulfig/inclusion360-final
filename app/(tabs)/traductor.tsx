@@ -23,11 +23,9 @@ export default function TraductorScreen() {
       setTranscript('Escuchando...');
       setAiResponse('');
       
-      // Simular detección de voz progresiva
       setTimeout(() => setTranscript('¿Hola?'), 1000);
       setTimeout(() => setTranscript('¿Hola? ¿Podrías ayudarme con esto?'), 2500);
-      
-      // Simular respuesta de IA
+
       setTimeout(() => {
         setIsListening(false);
         setAiResponse('¡Claro! Estoy detectando tus señas y traduciendo a voz en tiempo real.');
@@ -64,7 +62,6 @@ export default function TraductorScreen() {
                     </Animated.View>
                   )}
                   
-                  {/* Mock Hand Boxes */}
                   <View style={[styles.handBox, { top: '30%', left: '20%' }]}>
                       <ThemedText style={styles.handLabel}>L Hand (92%)</ThemedText>
                   </View>
