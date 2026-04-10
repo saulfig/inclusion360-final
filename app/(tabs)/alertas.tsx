@@ -1,223 +1,246 @@
-import { StyleSheet, View, ScrollView, Pressable, SafeAreaView } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, SafeAreaView, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import type { Database } from '@/types/database';
 
-const MOCK_HISTORIAL = [
-  { id: '1', title: 'Timbre de Puerta', time: '10:45 AM', date: 'Hoy', type: 'audio', severity: 'low', description: 'Se detectó una frecuencia rítmica de 440Hz típica de un timbre electrónico.' },
-  { id: '2', title: 'Sirena de Emergencia', time: '09:12 AM', date: 'Hoy', type: 'warning', severity: 'high', description: 'Detección de sonido de alta intensidad (110dB). Posible ambulancia o estación de bomberos cercana.' },
-  { id: '3', title: 'Alarma de Incendio', time: 'Ayer', date: '12 Mar', type: 'critical', severity: 'critical', description: 'Señal intermitente de alta frecuencia. Verificar entorno inmediatamente.' },
-  { id: '4', title: 'Llanto de Bebé', time: 'Ayer', date: '12 Mar', type: 'audio', severity: 'medium', description: 'Sonido vocal detectado en la habitación continua.' },
-];
+type AlertRow = Database['public']['Tables']['alerts']['Row'];
+
+const RANDOM_TYPES = [
+  { type: 'Timbre de Puerta', severity: 'low', desc: 'Frecuencia rítmica detectada en la entrada.' },
+  { type: 'Alarma de Incendio', severity: 'high', desc: 'Señal intermitente de alta frecuencia.' },
+  { type: 'Claxon de vehículo', severity: 'medium', desc: 'Sonido vehicular cercano detectado.' },
+  { type: 'Llanto de bebé', severity: 'medium', desc: 'Patrón vocal continuo identificado.' },
+  { type: 'Sirena de Emergencia', severity: 'high', desc: 'Sonido de emergencia a alta intensidad.' },
+] as const;
 
 export default function AlertasScreen() {
-  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const { user } = useAuth();
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState<'todos' | 'high' | 'medium' | 'low'>('todos');
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('detected_at', { ascending: false });
+    setAlerts(data ?? []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`alerts:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'alerts', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setAlerts((prev) => [payload.new as AlertRow, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'alerts', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setAlerts((prev) => prev.filter((a) => a.id !== (payload.old as AlertRow).id));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  const simulateAlert = async () => {
+    if (!user) return;
+    setCreating(true);
+    const sample = RANDOM_TYPES[Math.floor(Math.random() * RANDOM_TYPES.length)];
+    const { error } = await supabase.from('alerts').insert({
+      user_id: user.id, type: sample.type, severity: sample.severity, description: sample.desc,
+    });
+    setCreating(false);
+    if (error) showAlert('Error', 'No se pudo crear la alerta');
+  };
+
+  const deleteAlert = async (id: string) => {
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+    const { error } = await supabase.from('alerts').delete().eq('id', id);
+    if (error) {
+      showAlert('Error', 'No se pudo eliminar');
+      load();
+    }
+  };
+
+  const clearAll = () => {
+    if (!user || alerts.length === 0) return;
+    showAlert('Limpiar historial', '¿Eliminar todas las alertas?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          setAlerts([]);
+          const { error } = await supabase.from('alerts').delete().eq('user_id', user.id);
+          if (error) { showAlert('Error', 'No se pudo limpiar'); load(); }
+        },
+      },
+    ]);
+  };
+
+  const filtered = filter === 'todos' ? alerts : alerts.filter((a) => a.severity === filter);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
-            <ThemedText style={styles.headerTitle}>Historial de Alertas</ThemedText>
-            <Pressable style={styles.filterBtn}>
-                <IconSymbol name="slider.horizontal.3" size={20} color="#E14F4F" />
+          <View>
+            <ThemedText style={styles.headerTitle}>Alertas</ThemedText>
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <ThemedText style={styles.liveText}>EN VIVO</ThemedText>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable style={styles.iconBtn} onPress={clearAll}>
+              <IconSymbol name="xmark" size={16} color="#666" />
             </Pressable>
+            <Pressable
+              style={[styles.simulateBtn, creating && { opacity: 0.6 }]}
+              onPress={simulateAlert}
+              disabled={creating}
+            >
+              {creating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <IconSymbol name="bell.fill" size={16} color="#FFF" />
+                  <ThemedText style={styles.simulateText}>Simular</ThemedText>
+                </>
+              )}
+            </Pressable>
+          </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {MOCK_HISTORIAL.map((item, index) => (
-            <Animated.View 
-              key={item.id} 
-              entering={FadeInUp.delay(index * 100)}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
+          {(['todos', 'high', 'medium', 'low'] as const).map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setFilter(f)}
+              style={[styles.filterChip, filter === f && styles.filterChipActive]}
             >
-              <Pressable 
-                style={styles.alertCard}
-                onPress={() => setSelectedAlert(item)}
-              >
-                <View style={[styles.typeIndicator, { backgroundColor: getSeverityColor(item.severity) }]} />
-                <View style={styles.alertContent}>
-                  <View style={styles.alertTop}>
-                    <ThemedText style={styles.alertTitle}>{item.title}</ThemedText>
-                    <ThemedText style={styles.alertTime}>{item.time}</ThemedText>
-                  </View>
-                  <ThemedText style={styles.alertDate}>{item.date}</ThemedText>
-                </View>
-                <IconSymbol name="chevron.right" size={16} color="#A0A0A0" />
-              </Pressable>
-            </Animated.View>
+              <ThemedText style={filter === f ? styles.filterTextActive : styles.filterText}>
+                {f === 'todos' ? 'Todos' : f === 'high' ? 'Alta' : f === 'medium' ? 'Media' : 'Baja'}
+              </ThemedText>
+            </Pressable>
           ))}
         </ScrollView>
 
-        {selectedAlert && (
-          <View style={styles.detailOverlay}>
-            <Animated.View entering={FadeInUp} style={styles.detailCard}>
-              <View style={styles.detailHeader}>
-                <ThemedText style={styles.detailTitle}>{selectedAlert.title}</ThemedText>
-                <Pressable onPress={() => setSelectedAlert(null)}>
-                  <IconSymbol name="xmark" size={24} color="#1A1A1A" />
-                </Pressable>
-              </View>
-              
-              <View style={styles.detailBody}>
-                <View style={styles.infoRow}>
-                  <ThemedText style={styles.label}>Severidad:</ThemedText>
-                  <ThemedText style={[styles.value, { color: getSeverityColor(selectedAlert.severity) }]}>
-                    {selectedAlert.severity.toUpperCase()}
-                  </ThemedText>
-                </View>
-                <View style={styles.infoRow}>
-                  <ThemedText style={styles.label}>Hora:</ThemedText>
-                  <ThemedText style={styles.value}>{selectedAlert.time} - {selectedAlert.date}</ThemedText>
-                </View>
-                <ThemedText style={styles.descriptionLabel}>Descripción:</ThemedText>
-                <ThemedText style={styles.descriptionText}>{selectedAlert.description}</ThemedText>
-              </View>
-
-              <Pressable style={styles.closeBtn} onPress={() => setSelectedAlert(null)}>
-                <ThemedText style={styles.closeBtnText}>Entendido</ThemedText>
-              </Pressable>
-            </Animated.View>
+        {loading ? (
+          <ActivityIndicator color="#E14F4F" style={{ marginTop: 40 }} />
+        ) : filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <IconSymbol name="bell.fill" size={48} color="#E0E0E0" />
+            <ThemedText style={styles.emptyText}>No hay alertas</ThemedText>
+            <ThemedText style={styles.emptySub}>Pulsa "Simular" para crear una</ThemedText>
           </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {filtered.map((item, index) => (
+              <Animated.View key={item.id} entering={FadeInUp.delay(index * 50)}>
+                <View style={styles.alertCard}>
+                  <View style={[styles.typeIndicator, { backgroundColor: getSeverityColor(item.severity) }]} />
+                  <View style={styles.alertContent}>
+                    <View style={styles.alertTop}>
+                      <ThemedText style={styles.alertTitle}>{item.type}</ThemedText>
+                      <ThemedText style={styles.alertTime}>{formatTime(item.detected_at)}</ThemedText>
+                    </View>
+                    {item.description && (
+                      <ThemedText style={styles.alertDesc} numberOfLines={2}>
+                        {item.description}
+                      </ThemedText>
+                    )}
+                  </View>
+                  <Pressable onPress={() => deleteAlert(item.id)} style={styles.deleteBtn}>
+                    <IconSymbol name="xmark" size={16} color="#999" />
+                  </Pressable>
+                </View>
+              </Animated.View>
+            ))}
+          </ScrollView>
         )}
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-function getSeverityColor(severity: string) {
+function getSeverityColor(severity: string | null) {
   switch (severity) {
-    case 'critical': return '#FF3B30';
-    case 'high': return '#FF9500';
-    case 'medium': return '#FFCC00';
+    case 'high': return '#FF3B30';
+    case 'medium': return '#FF9500';
     default: return '#34C759';
   }
 }
 
+function formatTime(iso: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF9F8',
+  container: { flex: 1, backgroundColor: '#FFF9F8' },
+  header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerTitle: { fontSize: 24, fontWeight: 'bold' },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
+  liveText: { fontSize: 10, fontWeight: 'bold', color: '#34C759', letterSpacing: 1 },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF',
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0',
   },
-  header: {
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  simulateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#E14F4F', paddingHorizontal: 16, height: 40, borderRadius: 12,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  simulateText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
+  filterScroll: { maxHeight: 44 },
+  filterContent: { paddingHorizontal: 20, gap: 8 },
+  filterChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16,
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F0F0F0',
   },
-  filterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  scrollContent: {
-    padding: 20,
-    gap: 12,
-  },
+  filterChipActive: { backgroundColor: '#E14F4F', borderColor: '#E14F4F' },
+  filterText: { fontSize: 12, color: '#666' },
+  filterTextActive: { fontSize: 12, color: '#FFF', fontWeight: 'bold' },
+  scrollContent: { padding: 20, gap: 12 },
   alertCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
+    backgroundColor: '#FFF', borderRadius: 20, padding: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    borderWidth: 1, borderColor: '#F0F0F0', marginBottom: 12,
   },
-  typeIndicator: {
-    width: 6,
-    height: '100%',
-    borderRadius: 3,
+  typeIndicator: { width: 6, height: 40, borderRadius: 3 },
+  alertContent: { flex: 1 },
+  alertTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  alertTitle: { fontSize: 16, fontWeight: 'bold', flex: 1 },
+  alertTime: { fontSize: 12, color: '#E14F4F', fontWeight: '600' },
+  alertDesc: { fontSize: 12, color: '#666', marginTop: 4 },
+  deleteBtn: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#F8F8F8',
+    justifyContent: 'center', alignItems: 'center',
   },
-  alertContent: {
-    flex: 1,
-  },
-  alertTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  alertTime: {
-    fontSize: 12,
-    color: '#E14F4F',
-    fontWeight: '600',
-  },
-  alertDate: {
-    fontSize: 12,
-    color: '#A0A0A0',
-    marginTop: 2,
-  },
-  detailOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-    padding: 20,
-  },
-  detailCard: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 30,
-    paddingBottom: 40,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  detailTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  detailBody: {
-    gap: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  label: {
-    fontSize: 14,
-    color: '#A0A0A0',
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  descriptionLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  closeBtn: {
-    backgroundColor: '#E14F4F',
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 30,
-  },
-  closeBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  }
+  empty: { alignItems: 'center', marginTop: 80, gap: 8 },
+  emptyText: { fontSize: 16, color: '#999', marginTop: 12 },
+  emptySub: { fontSize: 13, color: '#BBB' },
 });
