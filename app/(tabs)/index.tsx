@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView, SafeAreaView, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, Pressable, ActivityIndicator, Image } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -44,9 +44,16 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
-          <View>
-            <ThemedText style={styles.greeting}>{greeting()},</ThemedText>
-            <ThemedText style={styles.userName}>{profile?.full_name ?? 'Usuario'}</ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Image
+              source={require('@/assets/images/logo.png')}
+              style={{ width: 36, height: 36 }}
+              resizeMode="contain"
+            />
+            <View>
+              <ThemedText style={styles.greeting}>{greeting()},</ThemedText>
+              <ThemedText style={styles.userName}>{profile?.full_name ?? 'Usuario'}</ThemedText>
+            </View>
           </View>
           <Pressable style={styles.avatarBtn} onPress={() => router.push('/(tabs)/perfil')}>
             <IconSymbol name="person.crop.circle.fill" size={44} color="#E14F4F" />

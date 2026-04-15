@@ -14,7 +14,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#E14F4F',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
@@ -22,8 +22,18 @@ export default function TabLayout() {
           ios: {
             position: 'absolute',
           },
+          web: {
+            height: 60,
+            borderTopWidth: 1,
+            borderTopColor: '#F0F0F0',
+            backgroundColor: '#FFF',
+          },
           default: {},
         }),
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
       }}>
       <Tabs.Screen
         name="index"
@@ -65,6 +75,12 @@ export default function TabLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
