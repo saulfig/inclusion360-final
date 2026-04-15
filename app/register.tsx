@@ -26,6 +26,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleRegister = async () => {
     setError(null);
@@ -36,8 +37,16 @@ export default function RegisterScreen() {
     setLoading(true);
     const { error: err } = await signUp(email.trim(), password, fullName.trim());
     setLoading(false);
-    if (err) setError(err);
+    if (err) {
+      setError(err);
+    } else {
+      setSuccess(true);
+    }
   };
+
+  const handleFullNameChange = (text: string) => { setFullName(text); if (error) setError(null); };
+  const handleEmailChange = (text: string) => { setEmail(text); if (error) setError(null); };
+  const handlePasswordChange = (text: string) => { setPassword(text); if (error) setError(null); };
 
   return (
     <ThemedView style={styles.container}>
@@ -47,7 +56,7 @@ export default function RegisterScreen() {
           style={{ flex: 1 }}
         >
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Volver">
               <IconSymbol name="chevron.right" size={20} color="#1A1A1A" />
             </Pressable>
 
@@ -57,74 +66,89 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.formContainer}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Nombre completo</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <IconSymbol name="person.fill" size={20} color="#A0A0A0" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Tu nombre"
-                    placeholderTextColor="#A0A0A0"
-                    value={fullName}
-                    onChangeText={setFullName}
-                    editable={!loading}
-                  />
+              {success ? (
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <IconSymbol name="checkmark.circle.fill" size={60} color="#34C759" />
+                  <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginTop: 16, textAlign: 'center' }}>¡Cuenta creada!</ThemedText>
+                  <ThemedText style={{ fontSize: 14, color: '#666', marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+                    Revisa tu correo electrónico y confirma tu cuenta para iniciar sesión.
+                  </ThemedText>
+                  <Pressable style={[styles.btn, { marginTop: 24, width: '100%' }]} onPress={() => router.replace('/login')}>
+                    <ThemedText style={styles.btnText}>IR A INICIAR SESIÓN</ThemedText>
+                  </Pressable>
                 </View>
-              </View>
+              ) : (
+                <>
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Nombre completo</ThemedText>
+                    <View style={styles.inputWrapper}>
+                      <IconSymbol name="person.fill" size={20} color="#A0A0A0" />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Tu nombre"
+                        placeholderTextColor="#A0A0A0"
+                        value={fullName}
+                        onChangeText={handleFullNameChange}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
 
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Correo electrónico</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <IconSymbol name="message.fill" size={20} color="#A0A0A0" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="ejemplo@correo.com"
-                    placeholderTextColor="#A0A0A0"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    editable={!loading}
-                  />
-                </View>
-              </View>
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Correo electrónico</ThemedText>
+                    <View style={styles.inputWrapper}>
+                      <IconSymbol name="message.fill" size={20} color="#A0A0A0" />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="ejemplo@correo.com"
+                        placeholderTextColor="#A0A0A0"
+                        value={email}
+                        onChangeText={handleEmailChange}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
 
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Contraseña</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <IconSymbol name="keyboard" size={20} color="#A0A0A0" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Mínimo 6 caracteres"
-                    placeholderTextColor="#A0A0A0"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    editable={!loading}
-                  />
-                </View>
-              </View>
+                  <View style={styles.inputGroup}>
+                    <ThemedText style={styles.label}>Contraseña</ThemedText>
+                    <View style={styles.inputWrapper}>
+                      <IconSymbol name="keyboard" size={20} color="#A0A0A0" />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Mínimo 6 caracteres"
+                        placeholderTextColor="#A0A0A0"
+                        value={password}
+                        onChangeText={handlePasswordChange}
+                        secureTextEntry
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
 
-              {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
+                  {error && <ThemedText style={styles.errorText}>{error}</ThemedText>}
 
-              <Pressable
-                style={[styles.btn, loading && { opacity: 0.6 }]}
-                onPress={handleRegister}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <ThemedText style={styles.btnText}>CREAR CUENTA</ThemedText>
-                )}
-              </Pressable>
+                  <Pressable
+                    style={[styles.btn, loading && { opacity: 0.6 }]}
+                    onPress={handleRegister}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <ThemedText style={styles.btnText}>CREAR CUENTA</ThemedText>
+                    )}
+                  </Pressable>
 
-              <View style={styles.footer}>
-                <ThemedText style={styles.footerText}>¿Ya tienes cuenta? </ThemedText>
-                <Pressable onPress={() => router.replace('/login')}>
-                  <ThemedText style={styles.linkText}>Inicia sesión</ThemedText>
-                </Pressable>
-              </View>
+                  <View style={styles.footer}>
+                    <ThemedText style={styles.footerText}>¿Ya tienes cuenta? </ThemedText>
+                    <Pressable onPress={() => router.replace('/login')} style={{ padding: 4 }}>
+                      <ThemedText style={styles.linkText}>Inicia sesión</ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

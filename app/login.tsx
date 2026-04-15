@@ -26,6 +26,9 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const handleEmailChange = (text: string) => { setEmail(text); if (error) setError(null); };
+  const handlePasswordChange = (text: string) => { setPassword(text); if (error) setError(null); };
+
   const handleLogin = async () => {
     setError(null);
     if (!EMAIL_RE.test(email)) return setError('Correo inválido');
@@ -65,7 +68,7 @@ export default function LoginScreen() {
                   placeholder="ejemplo@correo.com"
                   placeholderTextColor="#A0A0A0"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   editable={!loading}
@@ -82,7 +85,7 @@ export default function LoginScreen() {
                   placeholder="••••••••"
                   placeholderTextColor="#A0A0A0"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
                   secureTextEntry
                   editable={!loading}
                 />
@@ -105,7 +108,7 @@ export default function LoginScreen() {
 
             <View style={styles.footer}>
               <ThemedText style={styles.footerText}>¿No tienes cuenta? </ThemedText>
-              <Pressable onPress={() => router.push('/register' as any)}>
+              <Pressable onPress={() => router.push('/register' as any)} style={{ padding: 4 }} accessibilityRole="link">
                 <ThemedText style={styles.linkText}>Regístrate</ThemedText>
               </Pressable>
             </View>

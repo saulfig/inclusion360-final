@@ -21,6 +21,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function mapAuthError(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Correo o contraseña incorrectos';
+  if (/email.*not.*confirmed/i.test(message)) return 'Debes confirmar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada.';
   if (/email.*already/i.test(message)) return 'Este correo ya está registrado';
   if (/password.*at least/i.test(message)) return 'La contraseña debe tener al menos 6 caracteres';
   if (/invalid.*email/i.test(message)) return 'Correo inválido';
