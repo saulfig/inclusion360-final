@@ -91,3 +91,4 @@ Los permisos se solicitan automáticamente al acceder a cada funcionalidad.
 | `pnpm web` | Abre en navegador |
 | `pnpm lint` | Ejecuta ESLint |
 | `pnpm test` | Ejecuta los tests con Jest |
+# inclusion360-final
